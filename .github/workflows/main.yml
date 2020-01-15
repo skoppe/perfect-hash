@@ -1,0 +1,24 @@
+name: build
+on: [push, pull_request]
+
+jobs:
+    test:
+        name: Dub Tests
+        strategy:
+            matrix:
+                os: [ubuntu-latest]
+                dc: [ldc-latest]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v1
+
+            - name: Install D compiler
+              uses: mihails-strasuns/setup-dlang@v0.4.0
+              with:
+                  compiler: ${{ matrix.dc }}
+
+            - name: Run tests
+              run: dub test
+              
+            - name: Build
+              run: dub build
