@@ -48,3 +48,5 @@ auto ph = createPerfectHashFunction(keys, rnd);
 assert(keys[ph("garage")] == "garage");
 assert(keys[ph("notfound")] != "notfound");
 ```
+
+Call `toDModule("functionName", "my.module")` on a perfect hash function to get a string which contains a static version of the hash function. You can save this to a D file and include in your project.

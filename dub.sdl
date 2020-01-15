@@ -1,5 +1,5 @@
 name "perfect-hash"
-description "A minimal D application."
+description "Library to create perfect hash function"
 authors "Sebastiaan Koppe"
 copyright "Copyright © 2020, Sebastiaan Koppe"
-license "proprietary"
+license "MIT"
