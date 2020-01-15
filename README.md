@@ -8,7 +8,7 @@ Can be used to quickly determine if a key belongs in a set.
 
 Either supply a list of strings:
 
-```Dlang
+```d
 import std.random;
 import perfecthash.generator;
 auto keys = ["asdf", "fdsa", "car", "garage", "elephant", "kangeroo"];
@@ -21,7 +21,7 @@ foreach(idx, key; keys)
 Or a list of KeyValue where you yourself determine to which value each string gets hashed too. Usefull if a set of strings consists of subsets, and you quickly want to determine which subset it belongs to.
 
 Here is a set of strings which contain either animals '0' or things '1'
-```Dlang
+```d
 import std.random;
 import perfecthash.generator;
 enum Class {
@@ -37,7 +37,7 @@ assert(ph("elephant") == Class.Animal);
 
 To quickly determine whether a string belongs in a set:
 
-```Dlang
+```d
 import std.random;
 import perfecthash.generator;
 auto keys = ["asdf", "fdsa", "car", "garage", "elephant", "kangeroo"];

@@ -69,7 +69,7 @@ unittest {
   auto keys = ["asdf", "fdsa", "car", "garage", "elephant", "kangeroo"];
   auto rnd = Random(9123);
   foreach(i; 0..10000) {
-    auto ph = createPerfectHashFunction(keys, rnd);
+    auto ph = createPerfectHashFunction(keys, rnd, 10);
     foreach(idx, key; keys)
       assert(ph(key) == idx);
   }
@@ -80,7 +80,7 @@ unittest {
   auto keys = [KeyValue("asdf",0), KeyValue("fdsa",1), KeyValue("car",1), KeyValue("garage",2), KeyValue("elephant",2), KeyValue("kangeroo",0)];
   auto rnd = Random(9812);
   foreach(i; 0..10000) {
-    auto ph = createPerfectHashFunction(keys, rnd);
+    auto ph = createPerfectHashFunction(keys, rnd, 10);
     foreach(key; keys)
       assert(ph(key.key) == key.value);
   }
@@ -89,14 +89,14 @@ unittest {
 import std.typecons : Tuple;
 alias KeyValue = Tuple!(string, "key", uint, "value");
 
-auto createPerfectHashFunction(Random)(string[] keys, Random rnd) {
+auto createPerfectHashFunction(Random)(string[] keys, Random rnd, ulong maxHnsecs = 1_000_000) {
   import std.range : enumerate;
   import std.algorithm : map;
   import std.array : array;
-  return createPerfectHashFunction(keys.enumerate.map!(k => KeyValue(k.value, cast(uint)k.index)).array(), rnd);
+  return createPerfectHashFunction(keys.enumerate.map!(k => KeyValue(k.value, cast(uint)k.index)).array(), rnd, maxHnsecs);
 }
 
-auto createPerfectHashFunction(Range, Random)(Range keys, Random rnd, ulong maxHnsecs = 100_000_000, size_t startN = size_t.max) if (is(ElementType!Range == KeyValue)) {
+auto createPerfectHashFunction(Range, Random)(Range keys, Random rnd, ulong maxHnsecs = 1_000_000, size_t startN = size_t.max) if (is(ElementType!Range == KeyValue)) {
   import std.algorithm : map, maxElement, max;
   import std.array : array;
   import std.datetime : Clock;
@@ -248,7 +248,9 @@ void assignVertexValues(const ref Edge[] edges, ref Vertex[] vertices, size_t n,
 unittest {
   auto edges = [Edge([0,1],0), Edge([0,2],2), Edge([1,0],0), Edge([1,2],1), Edge([2,1],1), Edge([2,0],2)];
   auto vertices = [Vertex(0, 0), Vertex(0, 2), Vertex(0, 4)];
-  assert(isCyclic(edges, vertices));
+  size_t[] rawBits = new size_t[vertices.length / size_t.sizeof + 1];
+  Appender!(ToCheck[]) toCheck;
+  assert(isCyclic(edges, vertices, rawBits, toCheck));
 }
 
 bool isCyclic(const ref Edge[] edges, const ref Vertex[] vertices, size_t[] rawBits, ref Appender!(ToCheck[]) toCheck) {
