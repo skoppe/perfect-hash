@@ -1,5 +1,7 @@
 # Perfect-hash
 
+<img src="https://github.com/skoppe/perfect-hash/workflows/build/badge.svg"/>
+
 Generates perfect hash function for a set of keys.
 
 Can be used to quickly determine if a key belongs in a set.
