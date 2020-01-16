@@ -50,3 +50,7 @@ assert(keys[ph("notfound")] != "notfound");
 ```
 
 Call `toDModule("functionName", "my.module")` on a perfect hash function to get a string which contains a static version of the hash function. You can save this to a D file and include in your project.
+
+# Our sponsors
+
+[<img src="https://raw.githubusercontent.com/libmir/mir-algorithm/master/images/symmetry.png" height="80" />](http://symmetryinvestments.com/)
