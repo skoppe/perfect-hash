@@ -1,5 +1,8 @@
 module perfecthash.generator;
 
+// Based on: http://ilan.schnell-web.net/prog/perfect-hash/algo.html
+// which is an illustration of an algorithm by Z. J. Czech, G. Havas and B.S. Majewski which is described in their 1992 paper "An optimal algorithm for generating minimal perfect hash functions" which appeared in Information Processing Letters, 43(5):257-264, 1992.
+
 import std.range : ElementType;
 import std.array : Appender;
 import std.typecons : Tuple;
