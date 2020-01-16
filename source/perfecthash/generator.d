@@ -1,22 +1,10 @@
 module perfecthash.generator;
-import std.random;
+
 import std.range : ElementType;
 import std.array : Appender;
+import std.typecons : Tuple;
 
-struct Input {
-  string[] keys;
-  size_t maxKeyLength;
-  size_t n;
-}
-
-struct State {
-  string[] keys;
-  size_t maxKeyLength;
-  size_t n;
-  Vertex[] vertices;
-  Edge[] edges;
-  HashFunction[2] hashFunction;
-}
+alias KeyValue = Tuple!(string, "key", uint, "value");
 
 struct Vertex {
   size_t value;
@@ -31,16 +19,60 @@ struct Edge {
 struct PerfectHashFunction {
   const(size_t)[] G;
   HashFunction[2] hashFunction;
-  this(const(size_t)[] G, HashFunction[2] hashFunction) {
+  this(const(size_t)[] G, HashFunction[2] hashFunction) @safe nothrow {
     this.G = G;
     this.hashFunction = hashFunction;
   }
-  size_t opCall(string key) {
+  size_t opCall(string key) @safe nothrow pure {
     return (G[hashFunction[0](key)] + G[hashFunction[1](key)]) % G.length;
   }
 }
 
-string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleName = "") {
+auto createPerfectHashFunction(Random)(string[] keys, Random rnd, ulong maxHnsecs = 1_000_000) @safe nothrow {
+  import std.range : enumerate;
+  import std.algorithm : map;
+  import std.array : array;
+  return createPerfectHashFunction(keys.enumerate.map!(k => KeyValue(k.value, cast(uint)k.index)).array(), rnd, maxHnsecs);
+}
+
+auto createPerfectHashFunction(Range, Random)(Range keys, Random rnd, ulong maxHnsecs = 1_000_000, size_t startN = size_t.max) @safe nothrow if (is(ElementType!Range == KeyValue)) {
+  import std.algorithm : map, maxElement, max;
+  import std.array : array;
+  import std.datetime : Clock;
+  auto start = Clock.currStdTime();
+  auto maxKeyLength = keys.map!(k => k.key.length).maxElement();
+  auto k = keys.length;
+  auto n = startN == size_t.max ? k * 2 : startN;
+  assert(n > k);
+  Vertex[] vertices = new Vertex[n];
+  Edge[] edges = new Edge[k * 2];
+  HashFunction[2] hashFunctions = [HashFunction(maxKeyLength, n), HashFunction(maxKeyLength, n)];
+  PerfectHashFunction bestEffort;
+  size_t[] rawBits = new size_t[vertices.length / size_t.sizeof + 1];
+  Appender!(ToCheck[]) toCheck;
+  for(;;) {
+    if (Clock.currStdTime() - start > maxHnsecs && bestEffort.G.length != 0)
+      break;
+    hashFunctions[0].randomize(0, n, rnd);
+    hashFunctions[1].randomize(0, n, rnd);
+    if (!calcEdges(keys, hashFunctions, edges, vertices))
+      continue;
+    if (assignVertexValuesOnlyWhenACyclic(edges, vertices, n, rawBits, toCheck))
+      continue;
+    bestEffort = PerfectHashFunction(extractG(vertices).array(), hashFunctions);
+    if (n == k)
+      break;
+    if (Clock.currStdTime() - start > maxHnsecs)
+      break;
+    n = n - (max(1, (n - k) / 20));
+    vertices = vertices[0 .. n];
+    vertices[] = Vertex(0,0);
+    hashFunctions = [HashFunction(maxKeyLength, n), HashFunction(maxKeyLength, n)];
+  }
+  return bestEffort;
+}
+
+string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleName = "") @safe pure {
   import std.conv : to;
   import std.string : replace;
   size_t N = fun.G.length;
@@ -64,7 +96,7 @@ string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleNa
   return func;
 }
 
-unittest {
+@safe nothrow unittest {
   import std.random;
   auto keys = ["asdf", "fdsa", "car", "garage", "elephant", "kangeroo"];
   auto rnd = Random(9123);
@@ -75,7 +107,7 @@ unittest {
   }
 }
 
-unittest {
+@safe nothrow unittest {
   import std.random;
   auto keys = [KeyValue("asdf",0), KeyValue("fdsa",1), KeyValue("car",1), KeyValue("garage",2), KeyValue("elephant",2), KeyValue("kangeroo",0)];
   auto rnd = Random(9812);
@@ -84,54 +116,6 @@ unittest {
     foreach(key; keys)
       assert(ph(key.key) == key.value);
   }
-}
-
-import std.typecons : Tuple;
-alias KeyValue = Tuple!(string, "key", uint, "value");
-
-auto createPerfectHashFunction(Random)(string[] keys, Random rnd, ulong maxHnsecs = 1_000_000) {
-  import std.range : enumerate;
-  import std.algorithm : map;
-  import std.array : array;
-  return createPerfectHashFunction(keys.enumerate.map!(k => KeyValue(k.value, cast(uint)k.index)).array(), rnd, maxHnsecs);
-}
-
-auto createPerfectHashFunction(Range, Random)(Range keys, Random rnd, ulong maxHnsecs = 1_000_000, size_t startN = size_t.max) if (is(ElementType!Range == KeyValue)) {
-  import std.algorithm : map, maxElement, max;
-  import std.array : array;
-  import std.datetime : Clock;
-  auto start = Clock.currStdTime();
-  auto maxKeyLength = keys.map!(k => k.key.length).maxElement();
-  auto k = keys.length;
-  auto n = startN == size_t.max ? k * 2 : startN;
-  assert(n > k);
-  Vertex[] vertices = new Vertex[n];
-  Edge[] edges = new Edge[k * 2];
-  HashFunction[2] hashFunctions = [HashFunction(maxKeyLength, n), HashFunction(maxKeyLength, n)];
-  PerfectHashFunction bestEffort;
-  size_t[] rawBits = new size_t[vertices.length / size_t.sizeof + 1];
-  Appender!(ToCheck[]) toCheck;
-  for(;;) {
-    if (Clock.currStdTime() - start > maxHnsecs && bestEffort.G.length != 0)
-      break;
-    hashFunctions[0].randomize(0, n, rnd);
-    hashFunctions[1].randomize(0, n, rnd);
-    if (!calcEdges(keys, hashFunctions, edges, vertices))
-      continue;
-    if (isCyclic(edges, vertices, rawBits, toCheck))
-      continue;
-    assignVertexValues(edges, vertices, n, rawBits, toCheck);
-    bestEffort = PerfectHashFunction(extractG(vertices).array(), hashFunctions);
-    if (n == k)
-      break;
-    if (Clock.currStdTime() - start > maxHnsecs)
-      break;
-    n = n - (max(1, (n - k) / 20));
-    vertices = vertices[0 .. n];
-    vertices[] = Vertex(0,0);
-    hashFunctions = [HashFunction(maxKeyLength, n), HashFunction(maxKeyLength, n)];
-  }
-  return bestEffort;
 }
 
 auto extractG(const ref Vertex[] vertices) {
@@ -181,18 +165,18 @@ bool calcEdges(Range)(Range keys, const HashFunction[2] hashFunction, ref Edge[]
   return true;
 }
 
-auto outgoing(const ref Edge[] edges, const ref Vertex vertex) {
+auto outgoing(const ref Edge[] edges, const ref Vertex vertex) @safe nothrow {
   struct Impl {
     size_t idx;
     size_t vertexId;
     const Edge[] edge;
-    bool empty() {
+    bool empty() @safe nothrow {
       return idx >= edge.length || edge[idx].vertices[0] != vertexId;
     }
-    auto front() {
+    auto front() @safe nothrow {
       return edge[idx];
     }
-    void popFront() {
+    void popFront() @safe nothrow {
       idx++;
     }
   }
@@ -205,13 +189,29 @@ struct ToCheck {
   size_t parentId;
 }
 
-void assignVertexValues(const ref Edge[] edges, ref Vertex[] vertices, size_t n, size_t[] rawBits, ref Appender!(ToCheck[]) toCheck) {
+auto assumeNoThrow(T)(lazy T t) @trusted {
+  try {
+    return t();
+  } catch (Exception e) {
+    assert(0, e.message);
+  }
+}
+
+@safe nothrow unittest {
+  auto edges = [Edge([0,1],0), Edge([0,2],2), Edge([1,0],0), Edge([1,2],1), Edge([2,1],1), Edge([2,0],2)];
+  auto vertices = [Vertex(0, 0), Vertex(0, 2), Vertex(0, 4)];
+  size_t[] rawBits = new size_t[vertices.length / size_t.sizeof + 1];
+  Appender!(ToCheck[]) toCheck;
+  assert(assignVertexValuesOnlyWhenACyclic(edges, vertices, 3, rawBits, toCheck));
+}
+
+bool assignVertexValuesOnlyWhenACyclic(const ref Edge[] edges, ref Vertex[] vertices, size_t n, size_t[] rawBits, ref Appender!(ToCheck[]) toCheck) @trusted nothrow {
   import std.bitmanip : BitArray;
   import std.array : Appender;
   rawBits[] = 0;
   auto bitArray = BitArray(rawBits, rawBits.length * size_t.sizeof * 8);
-  assert(bitArray.length >= vertices.length);
-  toCheck.shrinkTo(0);
+  assert(bitArray.length >= vertices.length, "need as many bits as vertices");
+  toCheck.shrinkTo(0).assumeNoThrow();
   foreach(idx, startVertex; vertices) {
     if (bitArray[idx])
       continue;
@@ -229,52 +229,7 @@ void assignVertexValues(const ref Edge[] edges, ref Vertex[] vertices, size_t n,
     while (toCheck.data.length > 0) {
       auto check = toCheck.data[$-1];
       auto vertex = vertices[check.vertexId];
-      toCheck.shrinkTo(toCheck.data.length - 1);
-      if (vertex.edgeIndex == size_t.max)
-        continue;
-      foreach(edge; edges.outgoing(vertex)) {
-        auto neighbour = edge.vertices[1];
-        if (neighbour == check.parentId)
-          continue;
-        auto diff = (n - vertex.value + edge.hash) % n;
-        vertices[neighbour].value = diff;
-        bitArray[neighbour] = true;
-        toCheck.put(ToCheck(neighbour, check.vertexId));
-      }
-    }
-  }
-}
-
-unittest {
-  auto edges = [Edge([0,1],0), Edge([0,2],2), Edge([1,0],0), Edge([1,2],1), Edge([2,1],1), Edge([2,0],2)];
-  auto vertices = [Vertex(0, 0), Vertex(0, 2), Vertex(0, 4)];
-  size_t[] rawBits = new size_t[vertices.length / size_t.sizeof + 1];
-  Appender!(ToCheck[]) toCheck;
-  assert(isCyclic(edges, vertices, rawBits, toCheck));
-}
-
-bool isCyclic(const ref Edge[] edges, const ref Vertex[] vertices, size_t[] rawBits, ref Appender!(ToCheck[]) toCheck) {
-  import std.bitmanip : BitArray;
-  import std.array : Appender;
-  rawBits[] = 0;
-  auto bitArray = BitArray(rawBits, rawBits.length * size_t.sizeof * 8);
-  assert(bitArray.length >= vertices.length);
-  toCheck.shrinkTo(0);
-  foreach(idx, startVertex; vertices) {
-    if (bitArray[idx])
-      continue;
-    if (startVertex.edgeIndex == size_t.max)
-      continue;
-    bitArray[idx] = true;
-    foreach(edge; edges.outgoing(startVertex)) {
-      auto neighbour = edge.vertices[1];
-      toCheck.put(ToCheck(neighbour, idx));
-      bitArray[neighbour] = true;
-    }
-    while (toCheck.data.length > 0) {
-      auto check = toCheck.data[$-1];
-      auto vertex = vertices[check.vertexId];
-      toCheck.shrinkTo(toCheck.data.length - 1);
+      toCheck.shrinkTo(toCheck.data.length - 1).assumeNoThrow();
       if (vertex.edgeIndex == size_t.max)
         continue;
       foreach(edge; edges.outgoing(vertex)) {
@@ -283,6 +238,8 @@ bool isCyclic(const ref Edge[] edges, const ref Vertex[] vertices, size_t[] rawB
           continue;
         if (bitArray[neighbour])
           return true;
+        auto diff = (n - vertex.value + edge.hash) % n;
+        vertices[neighbour].value = diff;
         bitArray[neighbour] = true;
         toCheck.put(ToCheck(neighbour, check.vertexId));
       }
@@ -294,19 +251,19 @@ bool isCyclic(const ref Edge[] edges, const ref Vertex[] vertices, size_t[] rawB
 struct HashFunction {
   size_t[] coeff;
   size_t n;
-  size_t opCall(string key) const @safe nothrow {
+  size_t opCall(string key) const @safe nothrow pure {
     size_t t;
     foreach(idx, c; key)
       t += c * coeff[idx % coeff.length];
     return t % n;
   }
-  this(size_t k, size_t n) {
+  this(size_t k, size_t n) @safe nothrow {
     coeff.length = k;
     this.n = n;
   }
-  void randomize(Random)(size_t lower, size_t upper, auto ref Random rnd) @safe {
+  void randomize(Random)(size_t lower, size_t upper, auto ref Random rnd) @safe nothrow {
     import std.random : uniform;
     foreach(ref v; coeff[0..coeff.length])
-      v = uniform(lower, upper, rnd);
+      v = uniform(lower, upper, rnd).assumeNoThrow();
   }
 }
