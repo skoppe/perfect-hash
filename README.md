@@ -2,9 +2,9 @@
 
 <img src="https://github.com/skoppe/perfect-hash/workflows/build/badge.svg"/>
 
-Generates perfect hash function for a set of keys.
+Generates a perfect hash function for a set of strings.
 
-Can be used to quickly determine if a key belongs in a set.
+Can be used to quickly determine if a string belongs in a set or a subset. Instead of comparing strings (slow) you compare its hash (fast). The set of string must be known upfront.
 
 # Examples
 
@@ -20,9 +20,9 @@ foreach(idx, key; keys)
   assert(ph(key) == idx);
 ```
 
-Or a list of KeyValue where you yourself determine to which value each string gets hashed too. Usefull if a set of strings consists of subsets, and you quickly want to determine which subset it belongs to.
+Or a list of KeyValue where you yourself determine to which value each string gets hashed to. Useful if a set of strings consists of subsets and you quickly want to determine which subset it belongs to.
 
-Here is a set of strings which contain either animals '0' or things '1'
+Here is a set of strings which contains either animals or things.
 ```d
 import std.random;
 import perfecthash.generator;
@@ -37,7 +37,7 @@ assert(ph("car") == Class.Thing);
 assert(ph("elephant") == Class.Animal);
 ```
 
-To quickly determine whether a string belongs in a set:
+To quickly determine whether a string is in a set:
 
 ```d
 import std.random;
