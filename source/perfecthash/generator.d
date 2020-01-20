@@ -88,9 +88,9 @@ string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleNa
             t += c * coeff[idx % $coeffLen];
         return t % $N;
     }
-    static $NType[$N] G = $G;
-    static $NType[$coeffLen] coeffA = $coeffA;
-    static $NType[$coeffLen] coeffB = $coeffB;
+    static immutable $NType[$N] G = $G;
+    static immutable $NType[$coeffLen] coeffA = $coeffA;
+    static immutable $NType[$coeffLen] coeffB = $coeffB;
     return (G[hash!(coeffA)(key)] + G[hash!(coeffB)(key)]) % $N;
 }}.replace("$NType", NType).replace("$moduleName", moduleName).replace("$symbolName", symbolName).replace("$N", N.to!string).replace("$coeffLen", coeffLen.to!string).replace("$G", fun.G.to!string).replace("$coeffA", fun.hashFunction[0].coeff.to!string).replace("$coeffB", fun.hashFunction[1].coeff.to!string);
   if (moduleName.length > 0)
