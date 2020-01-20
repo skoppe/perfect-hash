@@ -81,7 +81,7 @@ string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleNa
   size_t N = fun.G.length;
   size_t coeffLen = fun.hashFunction[0].coeff.length;
   string NType = N > ushort.max ? "uint" : N > ubyte.max ? "ushort" : "ubyte";
-  auto func = q{auto $symbolName(string key) {
+  auto func = q{auto $symbolName(string key) @safe nothrow pure {
     static $NType hash(alias coeff)(string key) {
         size_t t;
         foreach(idx, c; key)
