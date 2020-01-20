@@ -82,18 +82,17 @@ string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleNa
   size_t coeffLen = fun.hashFunction[0].coeff.length;
   string NType = N > ushort.max ? "uint" : N > ubyte.max ? "ushort" : "ubyte";
   auto func = q{auto $symbolName(string key) {
-      static $NType hash(alias coeff)(string key) {
+    static $NType hash(alias coeff)(string key) {
         size_t t;
         foreach(idx, c; key)
-          t += c * coeff[idx % $coeffLen];
+            t += c * coeff[idx % $coeffLen];
         return t % $N;
-      }
-      static $NType[$N] G = $G;
-      static $NType[$coeffLen] coeffA = $coeffA;
-      static $NType[$coeffLen] coeffB = $coeffB;
-      return (G[hash!(coeffA)(key)] + G[hash!(coeffB)(key)]) % $N;
     }
-  }.replace("$NType", NType).replace("$moduleName", moduleName).replace("$symbolName", symbolName).replace("$N", N.to!string).replace("$coeffLen", coeffLen.to!string).replace("$G", fun.G.to!string).replace("$coeffA", fun.hashFunction[0].coeff.to!string).replace("$coeffB", fun.hashFunction[1].coeff.to!string);
+    static $NType[$N] G = $G;
+    static $NType[$coeffLen] coeffA = $coeffA;
+    static $NType[$coeffLen] coeffB = $coeffB;
+    return (G[hash!(coeffA)(key)] + G[hash!(coeffB)(key)]) % $N;
+}}.replace("$NType", NType).replace("$moduleName", moduleName).replace("$symbolName", symbolName).replace("$N", N.to!string).replace("$coeffLen", coeffLen.to!string).replace("$G", fun.G.to!string).replace("$coeffA", fun.hashFunction[0].coeff.to!string).replace("$coeffB", fun.hashFunction[1].coeff.to!string);
   if (moduleName.length > 0)
     return "module $moduleName;\n".replace("$moduleName", moduleName) ~ func;
   return func;
