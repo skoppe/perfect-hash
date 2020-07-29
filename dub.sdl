@@ -3,3 +3,11 @@ description "Library to create perfect hash function"
 authors "Sebastiaan Koppe"
 copyright "Copyright © 2020, Sebastiaan Koppe"
 license "MIT"
+
+configuration "unittest" {
+    dependency "unit-threaded" version="*"
+    mainSourceFile "bin/ut.d"
+    excludedSourceFiles "source/app.d"
+    targetType "executable"
+    preBuildCommands "$DUB run --compiler=$$DC unit-threaded -c gen_ut_main -- -f bin/ut.d -d $DUB"
+}
