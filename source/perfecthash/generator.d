@@ -151,16 +151,16 @@ string toDModule(ref PerfectHashFunction fun, string symbolName, string moduleNa
   size_t coeffLen = fun.hashFunction[0].coeff.length;
   string NType = N > ushort.max ? "uint" : N > ubyte.max ? "ushort" : "ubyte";
   auto func = q{auto $symbolName(string key) @safe nothrow pure {
-    static $NType hash(alias coeff)(string key) {
+    static $NType hash(alias coeff, size_t offset)(string key) {
         size_t t;
         foreach(idx, c; key)
-            t += c * coeff[idx % $coeffLen];
+            t += (c + offset) * coeff[idx % $coeffLen];
         return t % $N;
     }
     static immutable $NType[$N] G = $G;
     static immutable $NType[$coeffLen] coeffA = $coeffA;
     static immutable $NType[$coeffLen] coeffB = $coeffB;
-    return (G[hash!(coeffA)(key)] + G[hash!(coeffB)(key)]) % $N;
+    return (G[hash!(coeffA, 0)(key)] + G[hash!(coeffB, 1)(key)]) % $N;
 }}.replace("$NType", NType).replace("$moduleName", moduleName).replace("$symbolName", symbolName).replace("$N", N.to!string).replace("$coeffLen", coeffLen.to!string).replace("$G", fun.G.to!string).replace("$coeffA", fun.hashFunction[0].coeff.to!string).replace("$coeffB", fun.hashFunction[1].coeff.to!string);
   if (moduleName.length > 0)
     return "module $moduleName;\n".replace("$moduleName", moduleName) ~ func;
